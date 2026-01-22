@@ -16,9 +16,9 @@
 
     typedef uintptr_t size_type; // size of ptr
 
-    //typedef struct {
-     //   
-    //} Header;
+    typedef struct {
+        size_type available_bytes = 0;    
+    } Header;
 
     /*typedef struct {
         typedef byte flag_type;
@@ -29,9 +29,11 @@
     } Block;*/
 
     typedef struct {
-        void** free_blocks = NULL;
         void* start = NULL;
         void* end = NULL;
+        Header* free_blocks = NULL;
+        Header* max_block = NULL;
+
     } Allocator;
 
     Allocator* allocator_init();
