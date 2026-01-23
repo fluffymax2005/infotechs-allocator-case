@@ -27,6 +27,19 @@
         (!IS_SECTOR_OCCUPIED(state_mask, 9)) ? (9) : \
         (!IS_SECTOR_OCCUPIED(state_mask, 10)) ? (10) : \
         (!IS_SECTOR_OCCUPIED(state_mask, 11)) ? (11) : BLOCK_OCCUPIED)
+    #define IS_BLOCK_FREE(state_mask) \
+        ((!IS_SECTOR_OCCUPIED(state_mask, 0)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 1)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 2)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 3)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 4)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 5)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 6)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 7)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 8)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 9)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 10)) && \
+        (!IS_SECTOR_OCCUPIED(state_mask, 11)))
     #define RESET_BLOCK_OCCUPIED(state_mask) \
         (CLEAR_SECTOR_OCCUPIED(state_mask, 0), \
         CLEAR_SECTOR_OCCUPIED(state_mask, 1), \
@@ -40,8 +53,6 @@
         CLEAR_SECTOR_OCCUPIED(state_mask, 10), \
         CLEAR_SECTOR_OCCUPIED(state_mask, 11)) \
 
-        
-    
     typedef unsigned char byte; // 8 bit
     typedef unsigned short word; // 16 bit
     typedef unsigned int dword; // 32 bit
@@ -68,9 +79,12 @@
     Allocator* allocator_create_with_pool(const size_type bytes);
 
     void* allocator_alloc(Allocator* allocator, const size_type bytes);
-    void allocator_free(Allocator* allocator);
+    void allocator_free(Allocator* allocator, void* ptr);
 
     // Help functions
     static void* __alloc_small_block(Allocator* allocator);
     static void* __alloc_big_block(Allocator* allocator);
+
+    static void __free_small_sector(void* ptr, Header* header);
+    static void __free_big_sector(void* ptr, Header* header);
 #endif

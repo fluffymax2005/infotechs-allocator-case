@@ -54,7 +54,7 @@ void* __alloc_small_block(Allocator* allocator) {
     Header* ptr = allocator->_first;
     while (1) {
         if (ptr->block == EMPTY || ptr->block == SMALL) {
-            char available_sector = IS_BLOCK_OCCUPIED(ptr->sector); // number of first free sector
+            const char available_sector = IS_BLOCK_OCCUPIED(ptr->sector); // number of first free sector
             if (available_sector != BLOCK_OCCUPIED) {
                 // Update information about sectors
                 ptr->block = SMALL;
@@ -91,7 +91,7 @@ static void* __alloc_big_block(Allocator* allocator) {
     // Searching for first free sector
     Header* ptr = allocator->_first;
     while (1) {
-        if (ptr->block == EMPTY && IS_BLOCK_OCCUPIED(ptr->sector) != BLOCK_OCCUPIED) {
+        if (ptr->block == EMPTY && IS_BLOCK_OCCUPIED(ptr->sector) == 0) {
             return (char*)ptr + sizeof(Header);
         }
 
@@ -112,4 +112,47 @@ static void* __alloc_big_block(Allocator* allocator) {
     ptr->next = new_header;
 
     return (char*)new_space + sizeof(Header);
+}
+
+void allocator_free(Allocator* allocator, void* ptr) {
+    if (allocator == NULL || ptr == NULL)
+        return;
+
+    // User can free only that was given by allocator_alloc. Otherwise, nothing is done
+    Header* block_header = allocator->_first;
+    while (block_header) {
+        // ptr is in range [Header + sizeof(Header); Header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_BLOCK_SIZE]
+        if ((size_type)ptr >= (size_type)block_header + sizeof(Header) &&
+            (size_type)ptr <= (size_type)block_header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_BLOCK_SIZE) {
+                switch (block_header->block) {
+                    case SMALL: __free_small_sector(ptr, block_header); break;
+                    case BIG: __free_big_sector(ptr, block_header); break;
+                }
+                return;
+        }
+    }
+}
+
+static void __free_small_sector(void* ptr, Header* header) {
+    // Ptr check. If (ptr - (header + sizeof(Header))) % SMALL_BLOCK_SIZE != 0 then bad address is given
+    if (ptr == NULL || header == NULL || ((size_type)ptr - (size_type)header - sizeof(header)) % SMALL_BLOCK_SIZE)
+        return;
+
+    // Free sector
+    const byte sector_occupied = ((size_type)ptr - (size_type)header - sizeof(header)) % SMALL_BLOCK_SIZE;
+    CLEAR_SECTOR_OCCUPIED(header->sector, sector_occupied);
+
+    // If all sectors of block are free then mark block as free
+    if (IS_BLOCK_FREE(header->sector))
+        header->block = EMPTY;
+}
+
+static void __free_big_sector(void* ptr, Header* header) {
+    // Ptr check. If (ptr - (header + sizeof(Header))) != 0 then bad address is given
+    if (ptr == NULL || header == NULL || (size_type)ptr - ((size_type)header + sizeof(header)))
+        return;
+
+    // Free sector (block) and mark as empty;
+    RESET_BLOCK_OCCUPIED(header->block);
+    header->block = EMPTY;
 }
