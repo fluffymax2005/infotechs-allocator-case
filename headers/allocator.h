@@ -7,6 +7,7 @@
     #define SMALL_BLOCK_SIZE 15
     #define BIG_BLOCK_SIZE 180
     #define SMALL_SECTORS_IN_BIG ((BIG_BLOCK_SIZE) / (BIG_BLOCK_SIZE))
+    #define BLOCK_OCCUPIED -1
 
     #define DEFAULT_ALLOCATOR_BLOCK_SIZE BIG_BLOCK_SIZE
     
@@ -25,7 +26,20 @@
         (!IS_SECTOR_OCCUPIED(state_mask, 8)) ? (8) : \
         (!IS_SECTOR_OCCUPIED(state_mask, 9)) ? (9) : \
         (!IS_SECTOR_OCCUPIED(state_mask, 10)) ? (10) : \
-        (!IS_SECTOR_OCCUPIED(state_mask, 11)) ? (11) : -1)
+        (!IS_SECTOR_OCCUPIED(state_mask, 11)) ? (11) : BLOCK_OCCUPIED)
+    #define RESET_BLOCK_OCCUPIED(state_mask) \
+        (CLEAR_SECTOR_OCCUPIED(state_mask, 0), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 1), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 3), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 4), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 5), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 6), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 7), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 8), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 9), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 10), \
+        CLEAR_SECTOR_OCCUPIED(state_mask, 11)) \
+
         
     
     typedef unsigned char byte; // 8 bit
@@ -39,23 +53,24 @@
         EMPTY, SMALL, BIG
     } block_type;
 
-    typedef struct {
+    typedef struct Header {
+        struct Header* next;
         word sector:11;
         block_type block;
     } Header;
 
-    typedef struct {
+    typedef struct Allocator {
         Header* _first;
-        Header* _last;
+        //Header* _last;
     } Allocator;
 
     Allocator* allocator_create_empty();
     Allocator* allocator_create_with_pool(const size_type bytes);
 
-    void* allocator_alloc(Allocator* allocator, size_type bytes);
+    void* allocator_alloc(Allocator* allocator, const size_type bytes);
     void allocator_free(Allocator* allocator);
 
     // Help functions
-    static void* __alloc_small_block(Allocator* allocator, Header* first, Header* last);
-    static void* __alloc_big_block(Allocator* allocator, Header* first, Header* last);
+    static void* __alloc_small_block(Allocator* allocator);
+    static void* __alloc_big_block(Allocator* allocator);
 #endif

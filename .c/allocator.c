@@ -1,4 +1,5 @@
 #include "../headers/allocator.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 Allocator* allocator_create_empty() {
@@ -26,50 +27,47 @@ Allocator* allocator_create_with_pool(const size_type bytes) {
     // Initialize allocator fields
     Header* heap_header = (Header*)heap_block;
     heap_header->block = EMPTY;
+    heap_header->next = NULL;
     allocator->_first = heap_block;
-    allocator->_last = min_blocks_count == 1 ? heap_block : (char*)heap_block + (min_blocks_count - 1) * (sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
+    //allocator->_last = min_blocks_count == 1 ? heap_block : (char*)heap_block + (min_blocks_count - 1) * (sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
 
     return allocator;
 }
 
 
 void* allocator_alloc(Allocator* allocator, const size_type bytes) {
-    if (!allocator || !allocator->_first || !allocator->_last || !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
+    if (!allocator || !allocator->_first /*|| !allocator->_last*/ || !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
         return NULL;
-
-    Header* ptr = allocator->_first;
-    Header* free = NULL;
-
-
-
-    // Searching for first free sector
-    while (ptr <= allocator->_last) {
-        if (bytes == BIG_BLOCK_SIZE && ptr->block == EMPTY) { // for 180 bytes
-            free = ptr;
-            break;
-        } else if (bytes == SMALL_BLOCK_SIZE && (ptr->block == EMPTY || ptr->block == SMALL)) { // for 15 bytes
-            char sector = IS_BLOCK_OCCUPIED(ptr->sector); // number of first free sector
-            if (sector == -1)
-                continue; // not found
-            free = ptr;
-        }
+    switch (bytes) {
+        case SMALL_BLOCK_SIZE: return __alloc_small_block(allocator);
+        case BIG_BLOCK_SIZE: return __alloc_big_block(allocator);
+        default: return NULL;
     }
-    return (char*)ptr + sizeof(Header);
+
 }
 
-void* __alloc_small_block(Allocator* allocator, Header* first, Header* last) {
-    if (!first || !last || (size_type)first < (size_type)last)
+void* __alloc_small_block(Allocator* allocator) {
+    if (allocator == NULL)
         return NULL;
 
     // Searching for first free sector
-    while (first <= last) {
-        if (first->block == EMPTY || first->block == SMALL) {
-            char available_sector = IS_BLOCK_OCCUPIED(first->sector); // number of first free sector
-            if (available_sector == -1)
-                continue; // not found
-            return (char*)first + sizeof(Header) + 15 * available_sector;
+    Header* ptr = allocator->_first;
+    while (1) {
+        if (ptr->block == EMPTY || ptr->block == SMALL) {
+            char available_sector = IS_BLOCK_OCCUPIED(ptr->sector); // number of first free sector
+            if (available_sector != BLOCK_OCCUPIED) {
+                // Update information about sectors
+                ptr->block = SMALL;
+                SET_SECTOR_OCCUPIED(ptr->sector, available_sector);
+
+                return (char*)ptr + sizeof(Header) + 15 * available_sector;
+            }            
         }
-        first = (Header*)((char*)first + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
+
+        // If next is NULL then ptr must not change
+        if (ptr->next == NULL)
+            break;
+        ptr = ptr->next;
     }
 
     // Searching failed - there are no free space. Need to expand
@@ -81,6 +79,37 @@ void* __alloc_small_block(Allocator* allocator, Header* first, Header* last) {
     Header* new_header = (Header*)new_space;
     new_header->block = SMALL;
     SET_SECTOR_OCCUPIED(new_header->sector, 0);
+    ptr->next = new_header;
+
+    return (char*)new_space + sizeof(Header);
+}
+
+static void* __alloc_big_block(Allocator* allocator) {
+    if (allocator == NULL)
+        return NULL;
+
+    // Searching for first free sector
+    Header* ptr = allocator->_first;
+    while (1) {
+        if (ptr->block == EMPTY && IS_BLOCK_OCCUPIED(ptr->sector) != BLOCK_OCCUPIED) {
+            return (char*)ptr + sizeof(Header);
+        }
+
+        if (ptr->next == NULL)
+            break;
+        ptr = ptr->next;
+    }
+
+    // Searching failed - there no free space. Need to expand
+    void* new_space = calloc(1, sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
+    if (new_space == NULL)
+        return NULL;
+
+    // Fill header information
+    Header* new_header = (Header*)new_space;
+    new_header->block = BIG;
+    SET_SECTOR_OCCUPIED(new_header->sector, 0);
+    ptr->next = new_header;
 
     return (char*)new_space + sizeof(Header);
 }
