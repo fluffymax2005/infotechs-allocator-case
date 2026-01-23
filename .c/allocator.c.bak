@@ -1,0 +1,88 @@
+#include "../headers/allocator.h"
+#include <stdlib.h>
+
+Allocator* allocator_create_empty() {
+    return (Allocator*)calloc(1, sizeof(Allocator));
+}
+    
+Allocator* allocator_create_with_pool(const size_type bytes) {
+    Allocator* allocator = (Allocator*)calloc(1, sizeof(Allocator));
+
+    if (allocator == NULL)
+        return NULL;
+
+    // Block size rules:
+    // If required to allocate bytes count is less than sizeof(Header) (including default bytes = 0) then DEFAULT_ALLOCATOR_BLOCK_SIZE is used
+    size_type block_size = (bytes <= sizeof(Header) ? DEFAULT_ALLOCATOR_BLOCK_SIZE : bytes) + sizeof(Header);
+
+    void* heap_block = malloc(block_size);
+    if (heap_block == NULL) {
+        free(allocator);
+        return NULL;
+    }
+
+    // Initialize allocator fields
+
+    //allocator->start = heap_block;
+    //allocator->end = (char*)heap_block + block_size;
+
+    Header* heap_header = (Header*)heap_block;
+    heap_header->available_bytes = block_size - sizeof(Header);
+    
+    allocator->max_free_block = heap_header;
+    allocator->blocks_count = 1;
+
+    // Allocate memory for free segments
+    size_type free_blocks_init_size = sizeof(Header*);
+    Header** free_blocks = (Header**)malloc(free_blocks_init_size);
+    if (free_blocks) {
+        free_blocks[0] = heap_header;
+        allocator->blocks = free_blocks;
+    } else {
+        free(heap_block);
+        free(allocator);
+        return NULL;
+    }
+
+    return allocator;
+}
+
+
+void* allocator_alloc(Allocator* allocator, size_type bytes) {
+    if (!allocator || /*allocator->start || !allocator->end ||*/ !allocator->max_free_block ||
+        !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
+        return NULL;
+
+    void* ptr;
+    if (allocator->max_free_block->available_bytes < bytes) {
+        ptr = malloc(sizeof(Header) + bytes);
+        if (ptr == NULL)
+            return NULL;
+    } else {
+        ptr = allocator->max_free_block;
+    }
+    
+    Header** realloc_block_arr = (Header**)realloc(allocator->blocks, sizeof(Header*) * (allocator->blocks_count + 1));
+    if (realloc_block_arr == NULL)
+        return NULL;
+    allocator->blocks = realloc_block_arr;
+    
+    Header* header = (Header*)ptr;
+    header->available_bytes = bytes;
+    
+    allocator->blocks_count += 1;
+    allocator->max_free_block = allocator_find_max_free_block(allocator->blocks, allocator->blocks_count);
+
+    return (char*)ptr + sizeof(Header);
+}
+
+Header* allocator_find_max_free_block(Header** blocks, size_type count) {
+    if (blocks == NULL || *blocks == NULL)
+        return NULL;
+    Header** mx = blocks;
+    while (count--) 
+        if ((*blocks++)->available_bytes > (*mx)->available_bytes)
+            mx = blocks - 1;
+    return *mx;
+
+}
