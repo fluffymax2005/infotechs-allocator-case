@@ -1,0 +1,55 @@
+#ifndef MY_ALLOCATOR_H
+    #define MY_ALLOCATOR_H
+
+    #include "configure.h"
+    #include <stdint.h>
+
+    #define SMALL_BLOCK_SIZE 15
+    #define BIG_BLOCK_SIZE 180
+
+    #define DEFAULT_ALLOCATOR_BLOCK_SIZE BIG_BLOCK_SIZE
+    #define DEFRAGMENTATION_OPTIMIZATION
+
+    typedef unsigned char byte; // 8 bit
+    typedef unsigned short int word; // 16 bit
+    typedef unsigned int dword; // 32 bit
+    typedef unsigned long long qword; // 64 bit
+
+    typedef uintptr_t size_type; // size of ptr
+
+    typedef struct {
+        size_type available_bytes;
+        byte isFree:1;
+    } Header;
+
+    typedef struct {
+        //void* start;
+        //void* end;
+        size_type blocks_count;
+        Header** blocks;
+        Header* max_free_block;
+    } Allocator;
+
+    typedef enum {
+        ALLOCATOR_EMPTY,
+        ALLOCATOR_WITH_POOL
+    } AllocatorMode;
+
+
+    /*typedef struct {
+        typedef byte flag_type;
+
+        size_type size = 0;
+        void* ptr = NULL;
+        flag_type isFree:1 = 1;
+    } Block;*/
+
+    Allocator* allocator_create_empty();
+    Allocator* allocator_create_with_pool(const size_type bytes);
+
+    void* allocator_alloc(Allocator* allocator, size_type bytes);
+    void allocator_free(Allocator* allocator);
+
+    // Help functions
+    Header* allocator_find_max_free_block(Header** blocks, size_type count);
+#endif
