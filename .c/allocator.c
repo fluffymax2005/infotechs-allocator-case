@@ -59,7 +59,7 @@ void* __alloc_small_sector(Allocator* allocator) {
 
     // Searching for first free sector
     Header* ptr = allocator->_first;
-    while (1) {
+    while (ptr) {
         if (ptr->block == EMPTY || ptr->block == SMALL) {
             const sbyte available_sector = __find_free_sector(ptr->sector); // number of first free sector
             if (available_sector != BLOCK_OCCUPIED) {
@@ -86,7 +86,11 @@ void* __alloc_small_sector(Allocator* allocator) {
     Header* new_header = (Header*)new_space;
     new_header->block = SMALL;
     SET_SECTOR_OCCUPIED(new_header->sector, 0);
-    ptr->next = new_header;
+
+    if (ptr)
+        ptr->next = new_header; // concat new allocated memory to existing
+    else
+        allocator->_first = new_header; // mark new allocated memory as first allocation
 
     return (char*)new_space + sizeof(Header);
 }
@@ -97,7 +101,7 @@ void* __alloc_big_sector(Allocator* allocator) {
 
     // Searching for first free sector
     Header* ptr = allocator->_first;
-    while (1) {
+    while (ptr) {
         if (ptr->block == EMPTY) {
             __set_block_occupied(ptr);
             ptr->block = BIG;
@@ -118,7 +122,11 @@ void* __alloc_big_sector(Allocator* allocator) {
     Header* new_header = (Header*)new_space;
     new_header->block = BIG;
     __set_block_occupied(new_header);
-    ptr->next = new_header;
+    
+    if (ptr)
+        ptr->next = new_header; // concat new allocated memory to existing
+    else
+        allocator->_first = new_header; // mark new allocated memory as first allocation
 
     return (char*)new_space + sizeof(Header);
 }

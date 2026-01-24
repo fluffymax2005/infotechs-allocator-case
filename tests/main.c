@@ -4,13 +4,19 @@
 #include "../headers/allocator.h"
 
 int main() {
-    Allocator* allocator = allocator_create_with_pool(SMALL_BLOCK_SIZE);
+    Allocator* allocator = allocator_create_empty();
 
-    void* ptr1 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
-    void* ptr2 = allocator_alloc(allocator, BIG_BLOCK_SIZE);
+    void* s1 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
+    void* s2 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
+    void* s3 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
+    void* s4 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
+    void* s5 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);
 
 
-    printf("Allocator=%i\nptr1 = %i\nptr2 = %i\nPointer difference (without header) = %i\n", 
-        ptr1, ptr2, allocator, 
-        (size_type)ptr2 - (size_type)ptr1);
+
+    printf("s1 = %i\ns2 = %i\ns3 = %i\ns4 = %i\ns5 = %i\n", (size_type)s1, (size_type)s2, (size_type)s3, (size_type)s4, (size_type)s5);
+
+
+
+    exit(EXIT_SUCCESS);
 }
