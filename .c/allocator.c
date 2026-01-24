@@ -1,5 +1,6 @@
 #include "../headers/allocator.h"
 #include <stdlib.h>
+#include <stdbool.h>
 
 Allocator* allocator_create_empty() {
     return (Allocator*)calloc(1, sizeof(Allocator));
@@ -38,14 +39,14 @@ void* allocator_alloc(Allocator* allocator, const size_type bytes) {
     if (!allocator || !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
         return NULL;
     switch (bytes) {
-        case SMALL_BLOCK_SIZE: return __alloc_small_block(allocator);
-        case BIG_BLOCK_SIZE: return __alloc_big_block(allocator);
+        case SMALL_BLOCK_SIZE: return __alloc_small_sector(allocator);
+        case BIG_BLOCK_SIZE: return __alloc_big_sector(allocator);
         default: return NULL;
     }
 
 }
 
-void* __alloc_small_block(Allocator* allocator) {
+void* __alloc_small_sector(Allocator* allocator) {
     if (allocator == NULL)
         return NULL;
 
@@ -53,7 +54,7 @@ void* __alloc_small_block(Allocator* allocator) {
     Header* ptr = allocator->_first;
     while (1) {
         if (ptr->block == EMPTY || ptr->block == SMALL) {
-            const char available_sector = IS_BLOCK_OCCUPIED(ptr->sector); // number of first free sector
+            const sbyte available_sector = __find_free_sector(ptr->sector); // number of first free sector
             if (available_sector != BLOCK_OCCUPIED) {
                 // Update information about sectors
                 ptr->block = SMALL;
@@ -83,7 +84,7 @@ void* __alloc_small_block(Allocator* allocator) {
     return (char*)new_space + sizeof(Header);
 }
 
-static void* __alloc_big_block(Allocator* allocator) {
+static void* __alloc_big_sector(Allocator* allocator) {
     if (allocator == NULL)
         return NULL;
 
@@ -128,6 +129,7 @@ void allocator_free(Allocator* allocator, void* ptr) {
                 }
                 return;
         }
+        block_header = block_header->next;
     }
 }
 
@@ -142,7 +144,7 @@ static void __free_small_sector(void* ptr, Header* header) {
 
     // If all sectors of block are free then mark block as free
     const word block_mask = header->sector;
-    if (IS_BLOCK_FREE(block_mask))
+    if (__is_block_free(block_mask))
         header->block = EMPTY;
 }
 
@@ -152,6 +154,25 @@ static void __free_big_sector(void* ptr, Header* header) {
         return;
 
     // Free sector (block) and mark as empty;
-    RESET_BLOCK_OCCUPIED(header->block);
+    __reset_block_occupied(header);
+}
+
+sbyte __find_free_sector(const word mask) {
+    for (byte i = 0; i < 12; ++i)
+        if (!IS_SECTOR_OCCUPIED(mask, i)) return i;
+    return BLOCK_OCCUPIED;
+}
+
+bool __is_block_free(const word mask) {
+    for (byte i = 0; i < 12; ++i)
+        if (IS_SECTOR_OCCUPIED(mask, i)) return false;
+    return true;
+}
+
+void __reset_block_occupied(Header* header) {
+    if (header == NULL)
+        return;
+    for (byte i = 0; i < 12; ++i)
+        CLEAR_SECTOR_OCCUPIED(header->sector, i);
     header->block = EMPTY;
 }
