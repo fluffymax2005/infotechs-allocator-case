@@ -29,7 +29,7 @@
 
     typedef struct Header {
         struct Header* next;
-        word sector:11;
+        word sector:SMALL_SECTORS_IN_BIG;
         block_type block;
     } Header;
 
