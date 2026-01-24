@@ -89,6 +89,7 @@ void* __alloc_big_sector(Allocator* allocator) {
     while (1) {
         if (ptr->block == EMPTY) {
             __set_block_occupied(ptr);
+            ptr->block = BIG;
             return (char*)ptr + sizeof(Header);
         }
 
