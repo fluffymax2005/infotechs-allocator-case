@@ -6,7 +6,7 @@
 
     #define SMALL_BLOCK_SIZE 15
     #define BIG_BLOCK_SIZE 180
-    #define SMALL_SECTORS_IN_BIG ((BIG_BLOCK_SIZE) / (BIG_BLOCK_SIZE))
+    #define SMALL_SECTORS_IN_BIG ((BIG_BLOCK_SIZE) / (SMALL_BLOCK_SIZE))
     #define BLOCK_OCCUPIED -1
 
     #define DEFAULT_ALLOCATOR_BLOCK_SIZE BIG_BLOCK_SIZE
@@ -52,5 +52,6 @@
 
     static inline sbyte __find_free_sector(const word mask);
     static inline bool __is_block_free(const word mask);
+    static inline void __set_block_occupied(Header* header);
     static inline void __reset_block_occupied(Header* header);
 #endif

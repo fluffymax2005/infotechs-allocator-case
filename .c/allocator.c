@@ -7,18 +7,14 @@ Allocator* allocator_create_empty() {
 }
     
 Allocator* allocator_create_with_pool(const size_type bytes) {
+    if (bytes != SMALL_BLOCK_SIZE && bytes != BIG_BLOCK_SIZE)
+        return NULL;
+    
     Allocator* allocator = (Allocator*)calloc(1, sizeof(Allocator));
-
     if (allocator == NULL)
         return NULL;
 
-    // Block size rules:
-    // 1. If bytes < DEFAULT_ALLOCATOR_BLOCK_SIZE then (DEFAULT_ALLOCATOR_BLOCK_SIZE + sizeof(Header)) is used
-    // 2. Else sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE * <number_of_blocks> is used
-    const size_type min_blocks_count = bytes <= DEFAULT_ALLOCATOR_BLOCK_SIZE ? 1 : bytes / DEFAULT_ALLOCATOR_BLOCK_SIZE + 1;
-    const size_type block_size = min_blocks_count * (sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
-
-    void* heap_block = malloc(block_size);
+    void* heap_block = malloc(sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE);
     if (heap_block == NULL) {
         free(allocator);
         return NULL;
@@ -28,9 +24,9 @@ Allocator* allocator_create_with_pool(const size_type bytes) {
     Header* heap_header = (Header*)heap_block;
     heap_header->block = EMPTY;
     heap_header->next = NULL;
+    heap_header->sector = 0;
 
     allocator->_first = heap_block;
-
     return allocator;
 }
 
@@ -84,15 +80,17 @@ void* __alloc_small_sector(Allocator* allocator) {
     return (char*)new_space + sizeof(Header);
 }
 
-static void* __alloc_big_sector(Allocator* allocator) {
+void* __alloc_big_sector(Allocator* allocator) {
     if (allocator == NULL)
         return NULL;
 
     // Searching for first free sector
     Header* ptr = allocator->_first;
     while (1) {
-        if (ptr->block == EMPTY)
+        if (ptr->block == EMPTY) {
+            __set_block_occupied(ptr);
             return (char*)ptr + sizeof(Header);
+        }
 
         if (ptr->next == NULL)
             break;
@@ -107,7 +105,7 @@ static void* __alloc_big_sector(Allocator* allocator) {
     // Fill header information
     Header* new_header = (Header*)new_space;
     new_header->block = BIG;
-    SET_SECTOR_OCCUPIED(new_header->sector, 0);
+    __set_block_occupied(new_header);
     ptr->next = new_header;
 
     return (char*)new_space + sizeof(Header);
@@ -133,7 +131,7 @@ void allocator_free(Allocator* allocator, void* ptr) {
     }
 }
 
-static void __free_small_sector(void* ptr, Header* header) {
+void __free_small_sector(void* ptr, Header* header) {
     // Ptr check. If (ptr - (header + sizeof(Header))) % SMALL_BLOCK_SIZE != 0 then bad address is given
     if (ptr == NULL || header == NULL || ((size_type)ptr - ((size_type)header + sizeof(Header))) % SMALL_BLOCK_SIZE)
         return;
@@ -148,7 +146,7 @@ static void __free_small_sector(void* ptr, Header* header) {
         header->block = EMPTY;
 }
 
-static void __free_big_sector(void* ptr, Header* header) {
+void __free_big_sector(void* ptr, Header* header) {
     // Ptr check. If (ptr - (header + sizeof(Header))) != 0 then bad address is given
     if (ptr == NULL || header == NULL || (size_type)ptr - ((size_type)header + sizeof(Header)))
         return;
@@ -167,6 +165,13 @@ bool __is_block_free(const word mask) {
     for (byte i = 0; i < 12; ++i)
         if (IS_SECTOR_OCCUPIED(mask, i)) return false;
     return true;
+}
+
+void __set_block_occupied(Header* header) {
+    if (header == NULL)
+        return;
+    for (byte i = 0; i < 12; ++i)
+        SET_SECTOR_OCCUPIED(header->sector, i);
 }
 
 void __reset_block_occupied(Header* header) {
