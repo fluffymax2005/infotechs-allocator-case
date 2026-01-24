@@ -72,7 +72,6 @@
 
     typedef struct Allocator {
         Header* _first;
-        //Header* _last;
     } Allocator;
 
     Allocator* allocator_create_empty();
