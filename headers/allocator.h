@@ -1,7 +1,6 @@
 #ifndef MY_ALLOCATOR_H
     #define MY_ALLOCATOR_H
 
-    #include "configure.h"
     #include <stdint.h>
 
     #define SMALL_BLOCK_SIZE 15
