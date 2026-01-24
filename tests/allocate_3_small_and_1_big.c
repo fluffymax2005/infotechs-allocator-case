@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../headers/allocator.h"
+#include "../src/include/allocator.h"
 
 #define ARR_SIZE 4
 
