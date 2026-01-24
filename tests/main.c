@@ -4,13 +4,6 @@
 #include "../headers/allocator.h"
 
 int main() {
-    /*byte mask = 0;
-
-    SET_SECTOR_OCCUPIED(mask, 2);
-    CLEAR_SECTOR_OCCUPIED(mask, 2);
-
-    printf("%i", IS_SECTOR_OCCUPIED(mask, 2));*/
-
     Allocator* allocator = allocator_create_with_pool(SMALL_BLOCK_SIZE);
 
     void* ptr1 = allocator_alloc(allocator, SMALL_BLOCK_SIZE);

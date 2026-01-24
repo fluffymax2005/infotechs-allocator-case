@@ -40,6 +40,8 @@
     Allocator* allocator_create_empty();
     Allocator* allocator_create_with_pool(const size_type bytes);
 
+    void allocator_destroy_allocator(Allocator* allocator);
+
     void* allocator_alloc(Allocator* allocator, const size_type bytes);
     void allocator_free(Allocator* allocator, void* ptr);
 

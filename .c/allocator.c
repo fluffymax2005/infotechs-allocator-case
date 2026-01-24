@@ -30,6 +30,17 @@ Allocator* allocator_create_with_pool(const size_type bytes) {
     return allocator;
 }
 
+void allocator_destroy_allocator(Allocator* allocator) {
+    if (allocator == NULL || allocator->_first == NULL)
+        return;
+    Header* next = allocator->_first;
+    while (next) {
+        Header* cur = next;
+        next = cur->next;
+        free(cur);        
+    }
+    free(allocator);
+}
 
 void* allocator_alloc(Allocator* allocator, const size_type bytes) {
     if (!allocator || !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
