@@ -6,10 +6,7 @@ Allocator* allocator_create_empty() {
     return (Allocator*)calloc(1, sizeof(Allocator));
 }
     
-Allocator* allocator_create_with_pool(const size_type bytes) {
-    if (bytes != SMALL_BLOCK_SIZE && bytes != BIG_BLOCK_SIZE)
-        return NULL;
-    
+Allocator* allocator_create_with_pool() {    
     Allocator* allocator = (Allocator*)calloc(1, sizeof(Allocator));
     if (allocator == NULL)
         return NULL;
@@ -26,14 +23,14 @@ Allocator* allocator_create_with_pool(const size_type bytes) {
     heap_header->next = NULL;
     heap_header->sector = 0;
 
-    allocator->_first = heap_block;
+    allocator->first = heap_block;
     return allocator;
 }
 
 void allocator_destroy_allocator(Allocator* allocator) {
-    if (allocator == NULL || allocator->_first == NULL)
+    if (allocator == NULL || allocator->first == NULL)
         return;
-    Header* next = allocator->_first;
+    Header* next = allocator->first;
     while (next) {
         Header* cur = next;
         next = cur->next;
@@ -43,11 +40,11 @@ void allocator_destroy_allocator(Allocator* allocator) {
 }
 
 void* allocator_alloc(Allocator* allocator, const size_type bytes) {
-    if (!allocator || !(bytes == SMALL_BLOCK_SIZE || bytes == BIG_BLOCK_SIZE))
+    if (!allocator || !(bytes == SMALL_SECTOR_SIZE || bytes == BIG_SECTOR_SIZE))
         return NULL;
     switch (bytes) {
-        case SMALL_BLOCK_SIZE: return __alloc_small_sector(allocator);
-        case BIG_BLOCK_SIZE: return __alloc_big_sector(allocator);
+        case SMALL_SECTOR_SIZE: return __alloc_small_sector(allocator);
+        case BIG_SECTOR_SIZE: return __alloc_big_sector(allocator);
         default: return NULL;
     }
 
@@ -58,7 +55,7 @@ void* __alloc_small_sector(Allocator* allocator) {
         return NULL;
 
     // Searching for first free sector
-    Header* ptr = allocator->_first;
+    Header* ptr = allocator->first;
     while (ptr) {
         if (ptr->block == EMPTY || ptr->block == SMALL) {
             const sbyte available_sector = __find_free_sector(ptr->sector); // number of first free sector
@@ -67,7 +64,7 @@ void* __alloc_small_sector(Allocator* allocator) {
                 ptr->block = SMALL;
                 SET_SECTOR_OCCUPIED(ptr->sector, available_sector);
 
-                return (char*)ptr + sizeof(Header) + SMALL_BLOCK_SIZE * available_sector;
+                return (char*)ptr + sizeof(Header) + SMALL_SECTOR_SIZE * available_sector;
             }            
         }
 
@@ -90,7 +87,7 @@ void* __alloc_small_sector(Allocator* allocator) {
     if (ptr)
         ptr->next = new_header; // concat new allocated memory to existing
     else
-        allocator->_first = new_header; // mark new allocated memory as first allocation
+        allocator->first = new_header; // mark new allocated memory as first allocation
 
     return (char*)new_space + sizeof(Header);
 }
@@ -100,7 +97,7 @@ void* __alloc_big_sector(Allocator* allocator) {
         return NULL;
 
     // Searching for first free sector
-    Header* ptr = allocator->_first;
+    Header* ptr = allocator->first;
     while (ptr) {
         if (ptr->block == EMPTY) {
             __set_block_occupied(ptr);
@@ -126,7 +123,7 @@ void* __alloc_big_sector(Allocator* allocator) {
     if (ptr)
         ptr->next = new_header; // concat new allocated memory to existing
     else
-        allocator->_first = new_header; // mark new allocated memory as first allocation
+        allocator->first = new_header; // mark new allocated memory as first allocation
 
     return (char*)new_space + sizeof(Header);
 }
@@ -136,11 +133,11 @@ void allocator_free(Allocator* allocator, void* ptr) {
         return;
 
     // User can free only that was given by allocator_alloc. Otherwise, nothing is done
-    Header* block_header = allocator->_first;
+    Header* block_header = allocator->first;
     while (block_header) {
-        // ptr is in range [Header + sizeof(Header); Header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_BLOCK_SIZE]
+        // ptr is in range [Header + sizeof(Header); Header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_SECTOR_SIZE]
         if ((size_type)ptr >= (size_type)block_header + sizeof(Header) &&
-            (size_type)ptr <= (size_type)block_header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_BLOCK_SIZE) {
+            (size_type)ptr <= (size_type)block_header + sizeof(Header) + DEFAULT_ALLOCATOR_BLOCK_SIZE - SMALL_SECTOR_SIZE) {
                 switch (block_header->block) {
                     case SMALL: __free_small_sector(ptr, block_header); break;
                     case BIG: __free_big_sector(ptr, block_header); break;
@@ -152,12 +149,12 @@ void allocator_free(Allocator* allocator, void* ptr) {
 }
 
 void __free_small_sector(void* ptr, Header* header) {
-    // Ptr check. If (ptr - (header + sizeof(Header))) % SMALL_BLOCK_SIZE != 0 then bad address is given
-    if (ptr == NULL || header == NULL || ((size_type)ptr - ((size_type)header + sizeof(Header))) % SMALL_BLOCK_SIZE)
+    // Ptr check. If (ptr - (header + sizeof(Header))) % SMALL_SECTOR_SIZE != 0 then bad address is given
+    if (ptr == NULL || header == NULL || ((size_type)ptr - ((size_type)header + sizeof(Header))) % SMALL_SECTOR_SIZE)
         return;
 
     // Free sector
-    const byte sector_occupied = ((size_type)ptr - (size_type)header - sizeof(Header)) / SMALL_BLOCK_SIZE;
+    const byte sector_occupied = ((size_type)ptr - (size_type)header - sizeof(Header)) / SMALL_SECTOR_SIZE;
     CLEAR_SECTOR_OCCUPIED(header->sector, sector_occupied);
 
     // If all sectors of block are free then mark block as free

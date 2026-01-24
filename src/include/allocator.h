@@ -1,59 +1,262 @@
+/**
+ * @file allocator.h
+ * @brief Заголовочный файл кастомного аллокатора.
+ * 
+ * Содержит объявления типов данных, макросов и набора функций, предоставляющих доступ к кастомному аллокатору.
+ */
+
 #ifndef MY_ALLOCATOR_H
     #define MY_ALLOCATOR_H
 
     #include <stdint.h>
     #include <stdbool.h>
 
-    #define SMALL_BLOCK_SIZE 15
-    #define BIG_BLOCK_SIZE 180
-    #define SMALL_SECTORS_IN_BIG ((BIG_BLOCK_SIZE) / (SMALL_BLOCK_SIZE))
+    /**
+     * @def SMALL_SECTOR_SIZE
+     * @brief Занимаемый объём памяти малым сектором памяти (в байтах).
+     */
+    #define SMALL_SECTOR_SIZE 15
+
+    /**
+     * @def BIG_SECTOR_SIZE
+     * @brief Занимаемый объём памяти большим сектором памяти (в байтах).
+     */
+    #define BIG_SECTOR_SIZE 180
+
+    /**
+     * @def SMALL_SECTORS_IN_BIG
+     * @brief Сколько малых секторов может поместиться в большом (в штуках).
+     */
+    #define SMALL_SECTORS_IN_BIG ((BIG_SECTOR_SIZE) / (SMALL_SECTOR_SIZE))
+
+    /**
+     * @def BLOCK_OCCUPIED
+     * @brief Макрос, хранящий значение об отсутствии свободных секторов в блоке.
+     */
     #define BLOCK_OCCUPIED -1
 
-    #define DEFAULT_ALLOCATOR_BLOCK_SIZE BIG_BLOCK_SIZE
+    /**
+     * @def DEFAULT_ALLOCATOR_BLOCK_SIZE
+     * @brief Размер выделяемого пула памяти по умолчанию (в байтах).
+     */
+    #define DEFAULT_ALLOCATOR_BLOCK_SIZE BIG_SECTOR_SIZE
     
+    /**
+     * @def IS_SECTOR_OCCUPIED
+     * @brief Макрос, возвращающий состояние сектора памяти.
+     * @param state_mask маска состояния блока памяти.
+     * @param n номер проверяемого сектора. Начинается с @a нуля.
+     * @return 0 - сектор свободен, 1 - сектор занят.
+     */
     #define IS_SECTOR_OCCUPIED(state_mask, n) (((state_mask) >> (n)) & 1)
+
+    /**
+     * @def SET_SECTOR_OCCUPIED
+     * @brief Макрос, устанавливающий состояние сектора памяти в состояние "Занят".
+     * @param state_mask маска состояния блока памяти.
+     * @param n номер сектора, подлежащего изменению. Начинается с @a нуля.
+     * @return ничего.
+     */
     #define SET_SECTOR_OCCUPIED(state_mask, n) ((state_mask) |= (1 << (n)))
+
+    /**
+     * @def CLEAR_SECTOR_OCCUPIED
+     * @brief Макрос, устанавливающий состояние сектора памяти в состояние "Свободен".
+     * @param state_mask маска состояния блока памяти.
+     * @param n номер сектора, подлежащего изменению. Начинается с @a нуля.
+     * @return ничего.
+     */
     #define CLEAR_SECTOR_OCCUPIED(state_mask, n) ((state_mask) &= ~(1 << (n)))
 
+    /**
+     * @typedef sbyte
+     * @brief Синоним, представляющий байт.
+     * @note Можно хранить целые числа.
+     */
     typedef signed char sbyte; // 8 bit signed
+
+    /**
+     * @typedef byte
+     * @brief Синоним, представляющий байт без возможности хранить числа со знаком.
+     * @note Может хранить только @a неотрицательные целые числа.
+     */
     typedef unsigned char byte; // 8 bit
+
+    /**
+     * @typedef word
+     * @brief Синоним, представляющий машинное слово.
+     * @note Может хранить только @a неотрицательные целые числа.
+     */
     typedef unsigned short word; // 16 bit
+
+    /**
+     * @typedef dword
+     * @brief Синоним, представляющий двойное машинное слово.
+     * @note Может хранить только @a неотрицательные целые числа.
+     */
     typedef unsigned int dword; // 32 bit
+
+    /**
+     * @typedef qword
+     * @brief Синоним, представляющий четверное машинное слово.
+     * @note Может хранить только @a неотрицательные целые числа.
+     */
     typedef unsigned long long qword; // 64 bit
 
-    typedef uintptr_t size_type; // size of ptr
+    /**
+     * @typedef size_type
+     * @brief Синоним, представляющий размер указателя в текущем адресном пространстве.
+     */
+    typedef uintptr_t size_type;
 
+    /** Вид сектора, который занимает блок памяти. */
     typedef enum : byte { 
-        EMPTY, SMALL, BIG
+        EMPTY, /**< блок свободен */
+        SMALL, /**< малый сектор */
+        BIG /**< большой сектор */
     } block_type;
 
+    /**
+     * @struct Header
+     * @headerfile "src/include/allocator.h"
+     * @brief Заголовок блока памяти.
+     *
+     * Содержит необходимую информацию по выделенному блоку памяти.
+     */
     typedef struct Header {
-        struct Header* next;
-        word sector:SMALL_SECTORS_IN_BIG;
-        block_type block;
+        struct Header* next; /**<  @private Адрес следующего заголовка, владеющего другим блоком памяти. */
+        word sector:SMALL_SECTORS_IN_BIG; /**<  @private Битовая маска, содержащая состояние всех секторов во владении выделенного блока памяти. */
+        block_type block; /**<  @private Под какой размер сектора выделен блок. */
     } Header;
 
+    /**
+     * @struct Allocator
+     * @headerfile "src/include/allocator.h"
+     * @brief Кастомный аллокатор памяти.
+     * @note Выделяет и освобождает только блоки по 15 и 180 байт.
+     *   
+     * Занимается выделением и освобождением памяти.
+     */
     typedef struct Allocator {
-        Header* _first;
+        Header* first; /**< @private Адрес первого заголовка, управляющего памятью. */
     } Allocator;
 
+    /**
+     * @brief Создание аллокатора без предварительного пула памяти.
+     * @return адрес на созданный аллокатор, иначе NULL.
+     *
+     * Создает аллокатор, предварительно не резервируя первоначальный объем памяти для пула.
+     */
     Allocator* allocator_create_empty();
-    Allocator* allocator_create_with_pool(const size_type bytes);
 
+    /**
+     * @brief Создание аллокатора с предварительным пулом памяти.
+     * @return адрес на созданный аллокатор, иначе NULL.
+     *
+     * Создает аллокатор, предварительно резервируя первоначальный объем памяти для пула.
+     */
+    Allocator* allocator_create_with_pool();
+
+    /**
+     * @brief Освобождение памяти, которой владеет аллокатор, а также той, что сам занимает.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @return ничего.
+     *
+     * Осуществляет освобождение памяти, которой владеет аллокатор в совокупности с освобождением памяти, которую сам занимает.
+     */
     void allocator_destroy_allocator(Allocator* allocator);
 
+    /**
+     * @brief Выделение памяти аллокатором.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @param bytes размер выделяемого сектора памяти (в байтах). Ничего происходит, если передано значение ни 15, ни 180.
+     * @return адрес выделенной памяти заданного размера.
+     * @note Функция обертка
+     *
+     * Выделяет сектор памяти требуемого размера.
+     */
     void* allocator_alloc(Allocator* allocator, const size_type bytes);
+
+    /**
+     * @brief Освобождение памяти аллокатором.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @param ptr адрес освобождаемого сектора памяти. Выполняется проверка корректности переданного значения: если передано значение, отличное от того, что было выдано при выделении памяти, то ничего происходит.
+     * @return ничего.
+     * @note Полностью освобожденный блок памяти доступен для переиспользования сектором(-ами) любого размера. В одном блоке может находиться сектор(-ы) только одного вида.
+     *
+     * Освобождает сектор памяти по нужному адресу.
+     */
     void allocator_free(Allocator* allocator, void* ptr);
 
-    // Help functions
+    /**
+     * @brief Выделение памяти под сектор малого размера.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @return адрес на выделенную область памяти в случае успеха, иначе - NULL.
+     * @private
+     * @note Вспомогательная функция. После успешного выделения помечает блок таким образом, что его могут использовать только секторы малого размера до полного освобождения блока.
+     */
     static void* __alloc_small_sector(Allocator* allocator);
+
+    /**
+     * @brief Выделение памяти под сектор большого размера.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @return адрес на выделенную область памяти в случае успеха, иначе - NULL.
+     * @private
+     * @note Вспомогательная функция. После успешного выделения помечает блок таким образом, что его могут использовать только секторы большого размера до полного освобождения блока.
+     */
     static void* __alloc_big_sector(Allocator* allocator);
 
+    /**
+     * @brief Выделение памяти под сектор малого размера.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @return адрес на выделенную область памяти в случае успеха, иначе - NULL.
+     * @private
+     * @note Вспомогательная функция. Полное освобождение блока помечает его как свободный для переиспользования секторами любого вида. 
+     */
     static void __free_small_sector(void* ptr, Header* header);
+
+    /**
+     * @brief Выделение памяти под сектор большого размера.
+     * @param allocator адрес аллокатора. Ничего происходит, если передан NULL.
+     * @return адрес на выделенную область памяти в случае успеха, иначе - NULL.
+     * @private
+     * @note Вспомогательная функция. Полное освобождение блока помечает его как свободный для переиспользования секторами любого вида. 
+     */
     static void __free_big_sector(void* ptr, Header* header);
 
+    /**
+     * @brief Поиск номера ближайшего свободного сектора.
+     * @param state_mask маска состояния блока памяти.
+     * @return номер ближайшего свободного сектора памяти, иначе - @a BLOCK_OCCUPIED.
+     * @private
+     * @note Вспомогательная функция.
+     */
     static inline sbyte __find_free_sector(const word mask);
+
+    /**
+     * @brief Проверка, что блок @a полностью свободен.
+     * @param state_mask маска состояния блока памяти.
+     * @return true, если полностью свободен, иначе - false.
+     * @private
+     * @note Вспомогательная функция.
+     */
     static inline bool __is_block_free(const word mask);
+
+    /**
+     * @brief Установка блока в состояние "полностью занят".
+     * @param header адрес заголовка блока памяти, подлежащего изменению. Ничего происходит, если передан NULL.
+     * @return ничего.
+     * @private
+     * @note Вспомогательная функция. Состояние "полностью занят" таково, что из блока, о котором хранит информацию @a header, невозможно на данный момент выделить память.
+     */
     static inline void __set_block_occupied(Header* header);
+
+    /**
+     * @brief Установка блока в состояние "полностью свободен".
+     * @param header адрес заголовка блока памяти, подлежащего изменению. Ничего происходит, если передан NULL.
+     * @return ничего.
+     * @private
+     * @note Вспомогательная функция. Состояние "полностью свободен" таково, что из блока, о котором хранит информацию @a header, можно на данный момент выделить память под сектор любого размера.
+     */
     static inline void __reset_block_occupied(Header* header);
 #endif
